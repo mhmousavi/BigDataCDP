@@ -1,0 +1,25 @@
+import random
+import time
+from datetime import datetime
+from uuid import uuid4
+import json
+
+from kafka import KafkaProducer
+
+producer = KafkaProducer(bootstrap_servers="kafka:9092")
+
+i = 0
+while True:
+    i += 1
+    events = ['click_course', 'click_video']
+    data = {
+        "key": str(uuid4()),
+        "event": random.choice(events),
+        "ts": int(datetime.utcnow().timestamp()),
+        "json": {"session_id": "xxx" if i % 2 == 0 else "yyy"},
+    }
+    producer.send(topic="coursera", value=json.dumps(data).encode("utf-8"))
+    producer.flush(timeout=1)
+    time.sleep(4)
+
+producer.close()

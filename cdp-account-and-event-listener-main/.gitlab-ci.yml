@@ -1,0 +1,134 @@
+image: docker:stable-git
+
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  - echo https://mirror.math.princeton.edu/pub/alpinelinux/v3.12/main/ > /etc/apk/repositories; echo https://mirror.math.princeton.edu/pub/alpinelinux/v3.12/community/ >> /etc/apk/repositories
+  - apk add --no-cache bash
+
+stages:
+  - prepare
+  - test
+  - staging_migration_status
+  - staging_migrate
+  - staging_deploy
+  - production_migrate_status
+  - production_migrate
+  - production_deploy
+
+build:
+  stage: prepare
+  script:
+    - docker build --tag $CI_REGISTRY_IMAGE:build-$CI_COMMIT_SHA --file ./env/build/Dockerfile --target build .
+    - docker push $CI_REGISTRY_IMAGE:build-$CI_COMMIT_SHA
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_REF_NAME == "dev"
+    - if: $CI_COMMIT_REF_NAME == "staging"
+    - if: $CI_COMMIT_REF_NAME == "master"
+  allow_failure: false
+
+test:
+  stage: test
+  script:
+    - docker run --env PROFILE=test --rm $CI_REGISTRY_IMAGE:build-$CI_COMMIT_SHA test verify
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_REF_NAME == "dev"
+    - if: $CI_COMMIT_REF_NAME == "staging"
+    - if: $CI_COMMIT_REF_NAME == "master"
+  allow_failure: false
+
+staging:deploy:
+  stage: staging_deploy
+  script:
+    - echo deploy staging
+    - mkdir -p $HOME/.ssh
+    - echo "$DEPLOY_KEY" > $HOME/.ssh/id_rsa
+    - chmod 600 $HOME/.ssh/id_rsa
+    - docker build --tag $CI_REGISTRY_IMAGE:deploy-$CI_COMMIT_SHA --file ./env/build/Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE:deploy-$CI_COMMIT_SHA
+    - ssh -oStrictHostKeyChecking=no dp-backend@staging.tech.digiexpress.ir
+    - ssh dp-backend@staging.tech.digiexpress.ir "sudo /root/dp-backend/deploy.sh run $CI_REGISTRY_USER $CI_REGISTRY_PASSWORD $CI_REGISTRY $CI_REGISTRY_IMAGE:deploy-$CI_COMMIT_SHA"
+  only:
+    - staging
+  dependencies:
+    - staging:migrate
+  allow_failure: false
+
+staging:migrate:
+  stage: staging_migrate
+  script:
+    - cd liquibase
+    - CONNECTION="jdbc:mysql://$DB_HOST:$DB_PORT/$DB_NAME"
+    - docker build --tag migration .
+    - MIGRATION_TAG=$(date +%s%N)
+    - docker run migration tag $MIGRATION_TAG --url=$CONNECTION --username=$DB_USER --password=$DB_PASS
+    - docker run migration update --url=$CONNECTION --username=$DB_USER --password=$DB_PASS || (docker run migration rollback --tag $MIGRATION_TAG --url=$CONNECTION --username=$DB_USER --password=$DB_PASS && exit 1)
+  only:
+    - staging
+  when: manual
+  allow_failure: false
+
+staging:migration:status:
+  stage: staging_migration_status
+  script:
+    - cd liquibase
+    - docker build --tag migration .
+    - docker run migration status --verbose --url=jdbc:mysql://$DB_HOST:$DB_PORT/$DB_NAME --username=$DB_USER --password=$DB_PASS
+  only:
+    - staging
+  allow_failure: false
+
+
+production:migrate:status:
+  stage: production_migrate_status
+  script:
+    - echo migration status production
+    - mkdir -p $HOME/.ssh
+    - echo "$PRODUCTION_DEPLOY_KEY" > $HOME/.ssh/id_rsa
+    - chmod 600 $HOME/.ssh/id_rsa
+    - cd liquibase
+    - docker build --tag $CI_REGISTRY_IMAGE:migration-$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:migration-$CI_COMMIT_SHA
+    #    - ssh -oStrictHostKeyChecking=no backend@46.102.132.38
+    - ssh -oStrictHostKeyChecking=no backend@46.102.132.38 "migration_status $CI_REGISTRY_USER $CI_REGISTRY_PASSWORD $CI_REGISTRY $CI_REGISTRY_IMAGE:migration-$CI_COMMIT_SHA"
+  only:
+    - master
+  allow_failure: false
+
+production:migrate:
+  stage: production_migrate
+  script:
+    - echo migrate production
+    - mkdir -p $HOME/.ssh
+    - echo "$PRODUCTION_DEPLOY_KEY" > $HOME/.ssh/id_rsa
+    - chmod 600 $HOME/.ssh/id_rsa
+    - cd liquibase
+    - docker build --tag $CI_REGISTRY_IMAGE:migration-$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:migration-$CI_COMMIT_SHA
+    - MIGRATION_TAG=$(date +%s%N)
+    #    - ssh -oStrictHostKeyChecking=no backend@46.102.132.38
+    - ssh -oStrictHostKeyChecking=no backend@46.102.132.38 "migrate $CI_REGISTRY_USER $CI_REGISTRY_PASSWORD $CI_REGISTRY $CI_REGISTRY_IMAGE:migration-$CI_COMMIT_SHA MIGRATION_TAG $MIGRATION_TAG"
+  only:
+    - master
+  when: manual
+  allow_failure: false
+
+production:deploy:
+  stage: production_deploy
+  script:
+    - echo deploy production
+    - mkdir -p $HOME/.ssh
+    - echo "$PRODUCTION_DEPLOY_KEY" > $HOME/.ssh/id_rsa
+    - chmod 600 $HOME/.ssh/id_rsa
+    - docker build --tag $CI_REGISTRY_IMAGE:deploy-$CI_COMMIT_SHA  --file ./env/build/Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE:deploy-$CI_COMMIT_SHA
+    #    - ssh -oStrictHostKeyChecking=no backend@46.102.132.38
+    - ssh -oStrictHostKeyChecking=no backend@46.102.132.38 "run $CI_REGISTRY_USER $CI_REGISTRY_PASSWORD $CI_REGISTRY $CI_REGISTRY_IMAGE:deploy-$CI_COMMIT_SHA"
+  only:
+    - master
+  dependencies:
+    - production:migrate
+  allow_failure: false
+  when: manual
+
