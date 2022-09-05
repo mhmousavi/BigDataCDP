@@ -1,12 +1,5 @@
 version: "3"
 services:
-  main:
-    build:
-      context: .
-    command:
-      - sleep
-      - infinity
-#      - spark-submit --master spark://spark-master:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0 main.py
   spark-master:
     image: bde2020/spark-master:3.3.0-hadoop3.3
     container_name: spark-master
@@ -67,3 +60,14 @@ services:
     image: grafana/grafana-oss:latest
     ports:
       - "3000:3000"
+  main:
+    build:
+      context: .
+    volumes:
+      - .:/code
+    command:
+      - sleep
+      - infinity
+#      - spark-submit --master spark://spark-master:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0 main.py
+    depends_on:
+      - spark-master
