@@ -102,5 +102,5 @@ if __name__ == "__main__":
     consumer = kafka.KafkaConsumer(bootstrap_servers=["37.32.25.242:9091", "37.32.25.242:9092", "37.32.25.242:9093"])
     for topic in consumer.topics():
         df = read_kafka_df(topic)
-        # clicks_per_hour(df, topic)
-        current_active_sessions(df, topic)
+        clicks_per_hour(df, topic)
+        # current_active_sessions(df, topic)

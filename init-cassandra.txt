@@ -18,4 +18,12 @@ CREATE TABLE active_sessions(
    active_sessions int
 );
 
+CREATE TABLE click_per_hour(
+   application uuid PRIMARY KEY,
+   ts int,
+   click_per_hour int
+);
+
+
 SELECT * FROM active_sessions;
+SELECT * FROM click_per_hour;
