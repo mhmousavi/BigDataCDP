@@ -6,7 +6,7 @@ import json
 
 from kafka import KafkaProducer
 
-producer = KafkaProducer(bootstrap_servers="kafka:9092")
+producer = KafkaProducer(bootstrap_servers=["37.32.25.242:9091", "37.32.25.242:9092", "37.32.25.242:9093"])
 
 i = 0
 while True:
