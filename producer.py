@@ -20,6 +20,6 @@ while True:
     }
     producer.send(topic="coursera", value=json.dumps(data).encode("utf-8"))
     producer.flush(timeout=1)
-    time.sleep(4)
+    time.sleep(1)
 
 producer.close()
