@@ -36,7 +36,7 @@ def read_kafka_df():
     return df
 
 
-def upsert_metric(metric, batch_num: int):
+def upsert_metric_postgres(metric, batch_num: int):
     now = datetime.utcnow()
     sql = f"INSERT INTO active_sessions (ts, active_sessions) VALUES (TIMESTAMP '{now.strftime('%Y-%m-%d %H:%M:%S')}', {metric.count()})"
     with psycopg2.connect("host=localhost port=5432 user=metrics password=metrics dbname=metrics") as conn:
@@ -44,11 +44,30 @@ def upsert_metric(metric, batch_num: int):
             cursor.execute(sql)
 
 
+def upsert_metric_cassandra(metric, batch_num: int):
+    from cassandra.cluster import Cluster
+
+    now = int(datetime.utcnow().timestamp())
+
+    cluster = Cluster(["127.0.0.1"], port=9042)
+    session = cluster.connect("metrics")
+    session.execute(
+        f"INSERT INTO active_sessions (application, ts, active_sessions) VALUES ({application}, {now}, {metric.count()})"
+    )
+
+
+def upsert_metric(metric, batch_num: int):
+    upsert_metric_cassandra(metric, batch_num)
+    upsert_metric_postgres(metric, batch_num)
+
+
 def clicks_per_hour(df: DataFrame):
     # TODO : filter by click_
+    # TODO: set 10 second to 1 hour
     df = df.withWatermark("ts", "10 seconds")
     df = df.groupBy(F.window(F.col("ts"), "10 seconds"), "event").count()
     query = df.writeStream.outputMode("update").foreachBatch(upsert_metric).start()
+    # query = df.writeStream.outputMode("update").format("console").start()
     query.awaitTermination()
 
 
