@@ -15,7 +15,7 @@ spark.sparkContext.setLogLevel("ERROR")
 def read_kafka_df(topic):
     df = (
         spark.readStream.format("kafka")
-        .option("kafka.bootstrap.servers", "localhost:9092")
+        .option("kafka.bootstrap.servers", "37.32.25.242:9091,37.32.25.242:9092,37.32.25.242:9093")
         .option("subscribe", topic)
         .load()
     )

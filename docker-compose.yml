@@ -65,6 +65,8 @@ services:
       context: .
     volumes:
       - .:/code
+    ports:
+      - '4040:4040'
     command:
       - sleep
       - infinity
