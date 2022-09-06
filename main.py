@@ -1,4 +1,6 @@
 from datetime import datetime
+
+import kafka
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql import types as T
@@ -9,14 +11,12 @@ spark = SparkSession.builder.getOrCreate()
 
 spark.sparkContext.setLogLevel("ERROR")
 
-application = uuid4()
 
-
-def read_kafka_df():
+def read_kafka_df(topic):
     df = (
         spark.readStream.format("kafka")
         .option("kafka.bootstrap.servers", "localhost:9092")
-        .option("subscribe", "coursera")
+        .option("subscribe", topic)
         .load()
     )
 
@@ -48,6 +48,7 @@ def upsert_metric_cassandra(metric, batch_num: int):
     from cassandra.cluster import Cluster
 
     now = int(datetime.utcnow().timestamp())
+    application = uuid4()
 
     cluster = Cluster(["127.0.0.1"], port=9042)
     session = cluster.connect("metrics")
@@ -61,7 +62,7 @@ def upsert_metric(metric, batch_num: int):
     upsert_metric_postgres(metric, batch_num)
 
 
-def clicks_per_hour(df: DataFrame):
+def clicks_per_hour(df: DataFrame, topic):
     # TODO : filter by click_
     # TODO: set 10 second to 1 hour
     df = df.withWatermark("ts", "10 seconds")
@@ -71,17 +72,20 @@ def clicks_per_hour(df: DataFrame):
     query.awaitTermination()
 
 
-def current_active_sessions(df: DataFrame):
+def current_active_sessions(df: DataFrame, topic):
     df = df.withWatermark("ts", "2 seconds")
     df = df.groupBy(
         F.session_window(F.col("ts"), "2 seconds"),
         F.get_json_object("json", "$.session_id").alias("session_id"),
     ).count()
-    query = df.writeStream.outputMode("append").foreachBatch(upsert_metric).start()
-    # query = df.writeStream.outputMode("append").format("console").option("truncate", False).start()
+    # query = df.writeStream.outputMode("append").foreachBatch(upsert_metric).start()
+    query = df.writeStream.outputMode("append").format("console").option("truncate", False).start()
     query.awaitTermination()
 
 
 if __name__ == "__main__":
-    df = read_kafka_df()
-    current_active_sessions(df)
+    consumer = kafka.KafkaConsumer(bootstrap_servers="kafka:9092")
+    for topic in consumer.topics():
+        df = read_kafka_df(topic)
+        clicks_per_hour(df, topic)
+        # current_active_sessions(df, topic)

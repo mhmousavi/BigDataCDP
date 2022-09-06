@@ -1,0 +1,21 @@
+docker-compose exec cassandra cqlsh
+
+DESCRIBE keyspaces;
+
+CREATE KEYSPACE metrics
+  WITH replication = {
+  'class':'SimpleStrategy',
+   'replication_factor' : 1
+  };
+
+USE metrics;
+
+DESCRIBE tables;
+
+CREATE TABLE active_sessions(
+   application uuid PRIMARY KEY,
+   ts int,
+   active_sessions int
+);
+
+SELECT * FROM active_sessions;
