@@ -68,8 +68,17 @@ services:
     ports:
       - '4040:4040'
     command:
-      - sleep
-      - infinity
-#      - spark-submit --master spark://spark-master:7077 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.0 main.py
+      - "./spark-submit.sh"
+    depends_on:
+      - spark-master
+  main_click:
+    build:
+      context: .
+    volumes:
+      - .:/code
+    ports:
+      - '4041:4040'
+    command:
+      - "./spark-submit_click.sh"
     depends_on:
       - spark-master
