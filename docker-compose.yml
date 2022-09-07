@@ -26,28 +26,28 @@ services:
       - "8082:8081"
     environment:
       - "SPARK_MASTER=spark://spark-master:7077"
-#  cassandra:
-#      image: cassandra:latest
-#      ports:
-#        - '9042:9042'
-#  zookeeper:
-#    image: 'bitnami/zookeeper:latest'
-#    ports:
-#      - '2181:2181'
-#    environment:
-#      - ALLOW_ANONYMOUS_LOGIN=yes
-#  kafka:
-#    image: 'bitnami/kafka:latest'
-#    ports:
-#      - '9092:9092'
-#    environment:
-#      - KAFKA_BROKER_ID=1
-#      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
-#      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-#      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
-#      - ALLOW_PLAINTEXT_LISTENER=yes
-#    depends_on:
-#      - zookeeper
+  #  cassandra:
+  #      image: cassandra:latest
+  #      ports:
+  #        - '9042:9042'
+  #  zookeeper:
+  #    image: 'bitnami/zookeeper:latest'
+  #    ports:
+  #      - '2181:2181'
+  #    environment:
+  #      - ALLOW_ANONYMOUS_LOGIN=yes
+  #  kafka:
+  #    image: 'bitnami/kafka:latest'
+  #    ports:
+  #      - '9092:9092'
+  #    environment:
+  #      - KAFKA_BROKER_ID=1
+  #      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092
+  #      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+  #      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+  #      - ALLOW_PLAINTEXT_LISTENER=yes
+  #    depends_on:
+  #      - zookeeper
   postgres:
     image: postgres:latest
     ports:
@@ -71,6 +71,9 @@ services:
       - "./spark-submit.sh"
     depends_on:
       - spark-master
+    environment:
+      - BOOTSRAP_SERVER=37.32.25.242:9091,37.32.25.242:9092,37.32.25.242:9093
+      - CASSANDRA_IP=37.32.25.242
   main_click:
     build:
       context: .
@@ -82,3 +85,6 @@ services:
       - "./spark-submit_click.sh"
     depends_on:
       - spark-master
+    environment:
+      - BOOTSRAP_SERVER=37.32.25.242:9091,37.32.25.242:9092,37.32.25.242:9093
+      - CASSANDRA_IP=37.32.25.242

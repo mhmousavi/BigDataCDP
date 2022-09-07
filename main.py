@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 import kafka
@@ -15,7 +16,7 @@ spark.sparkContext.setLogLevel("ERROR")
 def read_kafka_df(topic):
     df = (
         spark.readStream.format("kafka")
-        .option("kafka.bootstrap.servers", "37.32.25.242:9091,37.32.25.242:9092,37.32.25.242:9093")
+        .option("kafka.bootstrap.servers", os.getenv("BOOTSRAP_SERVER"))
         .option("subscribe", topic)
         .load()
     )
@@ -50,7 +51,7 @@ def upsert_metric_cassandra_online(metric, batch_num: int):
     now = int(datetime.utcnow().timestamp())
     application = uuid4()
 
-    cluster = Cluster(["37.32.25.242"], port=9042)
+    cluster = Cluster([os.getenv("CASSANDRA_IP")], port=9042)
     session = cluster.connect("metrics")
     session.execute(
         f"INSERT INTO active_sessions (application, ts, active_sessions) VALUES ({application}, {now}, {metric.count()})"
@@ -63,7 +64,7 @@ def upsert_metric_cassandra_click(metric, batch_num: int):
     now = int(datetime.utcnow().timestamp())
     application = uuid4()
 
-    cluster = Cluster(["37.32.25.242"], port=9042)
+    cluster = Cluster([os.getenv("CASSANDRA_IP")], port=9042)
     session = cluster.connect("metrics")
     session.execute(
         f"INSERT INTO click_per_hour (application, ts, click_per_hour) VALUES ({application}, {now}, {metric.count()})"
@@ -91,16 +92,11 @@ def current_active_sessions(df: DataFrame, topic):
     df = df.withWatermark("ts", "2 seconds")
     df = df.groupBy(
         F.session_window(F.col("ts"), "2 seconds"),
-        F.get_json_object("json", "$.session_id").alias("session_id"),
+        F.get_json_object("json", "$.sessionId").alias("sessionId"),
     ).count()
-    query = df.writeStream.outputMode("append").foreachBatch(upsert_metric_online).start()
-    # query = df.writeStream.outputMode("append").format("console").option("truncate", False).start()
+    # query = df.writeStream.outputMode("append").foreachBatch(upsert_metric_online).start()
+    query = df.writeStream.outputMode("append").format("console").option("truncate", False).start()
     query.awaitTermination()
 
 
-if __name__ == "__main__":
-    consumer = kafka.KafkaConsumer(bootstrap_servers=["37.32.25.242:9091", "37.32.25.242:9092", "37.32.25.242:9093"])
-    for topic in consumer.topics():
-        df = read_kafka_df(topic)
-        # clicks_per_hour(df, topic)
-        current_active_sessions(df, topic)
+print(os.getenv("BOOTSRAP_SERVER"))

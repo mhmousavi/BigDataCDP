@@ -1,6 +1,8 @@
+import os
+
 import kafka
 
-consumer = kafka.KafkaConsumer(bootstrap_servers=["37.32.25.242:9091", "37.32.25.242:9092", "37.32.25.242:9093"])
+consumer = kafka.KafkaConsumer(bootstrap_servers=os.getenv("BOOTSRAP_SERVER").split(","))
 
 consumer.subscribe(list(consumer.topics()))
 

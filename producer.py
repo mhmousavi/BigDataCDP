@@ -1,3 +1,4 @@
+import os
 import random
 import time
 from datetime import datetime
@@ -6,7 +7,7 @@ import json
 
 from kafka import KafkaProducer
 
-producer = KafkaProducer(bootstrap_servers=["37.32.25.242:9091", "37.32.25.242:9092", "37.32.25.242:9093"])
+producer = KafkaProducer(bootstrap_servers=os.getenv("BOOTSRAP_SERVER").split(","))
 
 i = 0
 while True:
@@ -16,7 +17,7 @@ while True:
         "key": str(uuid4()),
         "event": random.choice(events),
         "ts": int(datetime.utcnow().timestamp()),
-        "json": {"session_id": "xxx" if i % 2 == 0 else "yyy"},
+        "json": {"sessionId": "xxx" if i % 2 == 0 else "yyy"},
     }
     producer.send(topic="coursera", value=json.dumps(data).encode("utf-8"))
     producer.flush(timeout=1)
