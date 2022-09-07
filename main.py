@@ -51,7 +51,7 @@ def upsert_metric_cassandra_online(metric, batch_num: int):
     now = int(datetime.utcnow().timestamp())
     application = uuid4()
 
-    cluster = Cluster([os.getenv("CASSANDRA_IP")], port=9042)
+    cluster = Cluster([os.getenv("CASSANDRA_IP")], port=9042, connect_timeout=30)
     session = cluster.connect("metrics")
     session.execute(
         f"INSERT INTO active_sessions (application, ts, active_sessions) VALUES ({application}, {now}, {metric.count()})"
@@ -64,7 +64,7 @@ def upsert_metric_cassandra_click(metric, batch_num: int):
     now = int(datetime.utcnow().timestamp())
     application = uuid4()
 
-    cluster = Cluster([os.getenv("CASSANDRA_IP")], port=9042)
+    cluster = Cluster([os.getenv("CASSANDRA_IP")], port=9042, connect_timeout=30)
     session = cluster.connect("metrics")
     session.execute(
         f"INSERT INTO click_per_hour (application, ts, click_per_hour) VALUES ({application}, {now}, {metric.count()})"
@@ -97,4 +97,3 @@ def current_active_sessions(df: DataFrame, topic):
     query = df.writeStream.outputMode("append").foreachBatch(upsert_metric_online).start()
     # query = df.writeStream.outputMode("append").format("console").option("truncate", False).start()
     query.awaitTermination()
-
