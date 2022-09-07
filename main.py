@@ -94,9 +94,7 @@ def current_active_sessions(df: DataFrame, topic):
         F.session_window(F.col("ts"), "2 seconds"),
         F.get_json_object("json", "$.sessionId").alias("sessionId"),
     ).count()
-    # query = df.writeStream.outputMode("append").foreachBatch(upsert_metric_online).start()
-    query = df.writeStream.outputMode("append").format("console").option("truncate", False).start()
+    query = df.writeStream.outputMode("append").foreachBatch(upsert_metric_online).start()
+    # query = df.writeStream.outputMode("append").format("console").option("truncate", False).start()
     query.awaitTermination()
 
-
-print(os.getenv("BOOTSRAP_SERVER"))
